@@ -1,5 +1,6 @@
-% Figure 1 of "Regularization by Denoising: Clarifications and New
-% Interpretations"
+% RED Cost vs. Fixed Point Error of "Regularization by Denoising:
+% Clarifications and New Interpretations"
+% https://arxiv.org/abs/1806.02296v2  
 %
 % An experiment to find a "bad" RED-SD trajectory
 %

@@ -1,5 +1,5 @@
-% Figure 2 of "Regularization by Denoising: Clarifications and New
-% Interpretations"
+% RED Cost Visualization from "Regularization by Denoising: Clarifications
+% and New Interpretations" https://arxiv.org/abs/1806.02296v2  
 %
 % Visualizes the RED-cost function and negative gradients in two
 % random directions

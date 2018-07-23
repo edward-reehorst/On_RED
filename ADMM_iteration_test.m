@@ -1,5 +1,5 @@
-% Figure 3 of "Regularization by Denoising: Clarifications and New
-% Interpretations"
+% ADMM Iteration test from "Regularization by Denoising: Clarifications
+% and New Interpretations" https://arxiv.org/abs/1806.02296v2  
 %
 % Compares ADMM (I=1), ADMM (I=2), ADMM (I=3), and ADMM (I=4) as applied to the
 % uniform deblurring problem.

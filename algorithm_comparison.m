@@ -1,5 +1,5 @@
-% Figure 4 of "Regularization by Denoising: Clarifications and New
-% Interpretations"
+% Algorithm Comparison from "Regularization by Denoising: Clarifications
+% and New Interpretations" https://arxiv.org/abs/1806.02296v2  
 % 
 % Compares ADMM (I=1), Fixed Point, Dynamic Penalty Proximal Gradient
 % (DP-PG), and Accelerated Proximal Gradient (APG) as applied to the
@@ -269,7 +269,7 @@ semilogx(1:outer_iters,psnr_admm_iter,'.-'...
 grid on;
 xlabel('iter');
 ylabel('psnr (dB)');
-legend('ADMM I=1', 'FP', 'PG-DP','PG-FISTA', 'Location', 'southeast');
+legend('ADMM I=1', 'FP', 'DPG','APG', 'Location', 'southeast');
 
 figure;
 semilogx(time_grid,psnr_admm_time,'.-'...
@@ -279,7 +279,7 @@ semilogx(time_grid,psnr_admm_time,'.-'...
 grid on;
 xlabel('time (sec)');
 ylabel('psnr (dB)');
-legend('ADMM I=1','FP', 'PG-DP','PG-FISTA', 'Location', 'southeast');
+legend('ADMM I=1','FP', 'DPG','APG', 'Location', 'southeast');
 
 
 

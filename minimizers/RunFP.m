@@ -1,8 +1,12 @@
+% The FP solver used in the paper "Regularization by Denoising:
+% Clarifications and New Interpretations" by Reehorst, Schniter
+% https://arxiv.org/abs/1806.02296v2
+%
 % This code is modified from RunFP that was developed as part of "The Little
 % Engine That Could: Regularization by Denoising (RED)" by Romano, Elad,
 % and Milanfar
 % 
-% Copyright 2017 Google Inc.
+% Original Code from: https://github.com/google/RED
 %
 % Licensed under the Apache License, Version 2.0 (the "License");
 % you may not use this file except in compliance with the License.

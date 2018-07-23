@@ -1,5 +1,6 @@
 This repository is made to publish code used in "Regularization by
 Denoising: Clarifications and New Interpretations" by Reehorst, Schniter
+https://arxiv.org/abs/1806.02296v2
 
 In order to recreate figures 1-4 and tables 1-3 run the corresponding
 script. figure_2.m and tables.m work with multiple denoisers. To change the

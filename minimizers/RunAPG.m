@@ -1,3 +1,7 @@
+% The APG solver used in the paper "Regularization by Denoising:
+% Clarifications and New Interpretations" by Reehorst, Schniter
+% https://arxiv.org/abs/1806.02296v2
+%
 % A version of FASTA, modified for RED. In "Regularization by Denoising:
 % Clarifications and New Interpretations", this is referred to as APG.
 %
@@ -49,7 +53,7 @@
 %   Original FASTA code available at:
 %   https://github.com/tomgoldstein/fasta-matlab
 %
-%   Copyright: Tom Goldstein, 2014.
+%   Original code by Tom Goldstein
 %
 %   Modified by Edward Reehorst
 
@@ -86,11 +90,11 @@ x0 = InitEstFunc(y);
     fft_Ht_y = conj(fft_psf).*fft_y / (input_sigma^2);
     fft_HtH = abs(fft_psf).^2 / (input_sigma^2);
      % Use fft to solve prox
-    proxg = @(v,tau) proxg_fft(v,tau,fft_Ht_y, fft_HtH);
+    proxg = @(v,tau,x0) proxg_fft(v,tau,fft_Ht_y, fft_HtH);
  else
     Ht_y = BackwardFunc(y)/(input_sigma^2);
      % Use loop to solve prox
-    proxg = @(v,tau) proxg_nonfft(v,tau,input_sigma, Ht_y, opts);
+    proxg = @(v,tau,x0) proxg_nonfft(v,tau,ForwardFunc,BackwardFunc,input_sigma, Ht_y, x0, opts);
  end
  
 
@@ -149,7 +153,7 @@ x0 = InitEstFunc(y);
 
      %%  FBS step: obtain x_{i+1} from x_i
      x1hat = x0 - tau0*gradf0; % Define \hat x_{i+1}
-     x1 = proxg(x1hat,tau0);   % Define x_{i+1}
+     x1 = proxg(x1hat,tau0,x0);   % Define x_{i+1}
     
      %%  Non-monotone backtracking line search
      Dx = x1-x0;
@@ -163,7 +167,7 @@ x0 = InitEstFunc(y);
          while f1-1e-12> M+real(dot(Dx(:),gradf0(:)))+norm(Dx(:))^2/(2*tau0) && backtrackCount<20  % the backtracking loop
           tau0 = tau0*opts.stepsizeShrink;    % shrink stepsize
           x1hat = x0 - tau0*gradf0; % redo the FBS
-          x1 = proxg(x1hat,tau0);
+          x1 = proxg(x1hat,tau0,x0);
           den1 = f_denoiser(x1,opts.effective_sigma);
           f1 = f(x1,den1);
           Dx = x1-x0; 
@@ -335,7 +339,7 @@ end
 % restart:  If 'true' then restart the acceleration of FISTA.
 %   This only has an effect when opts.accelerate=true
 if ~isfield(opts,'restart')    %  use restart?
-    opts.restart = true;
+    opts.restart = false;
 end
 
 % backtrack:  If 'true' then use backtracking line search
@@ -469,7 +473,8 @@ function x_hat = proxg_fft(v,tau, fft_Ht_y, fft_HtH)
 
 return
 
-function x_hat = proxg_nonfft(v,tau,input_sigma,Ht_y, opts)
+function x_hat = proxg_nonfft(v,tau,ForwardFunc,BackwardFunc,input_sigma,Ht_y,x0, opts)
+    x_hat = x0;
     for i = 1:opts.inner_iters
         b = Ht_y + 1/tau*v;
         ht_h_x_est = BackwardFunc(ForwardFunc(x_hat))/(input_sigma^2);
