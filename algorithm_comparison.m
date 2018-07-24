@@ -36,14 +36,14 @@ img_num = 1 + end_idx - start_idx;
 outer_iters = 200;
 
 psnr_admm = nan(outer_iters, img_num);
-psnr_pg = nan(outer_iters, img_num);
+psnr_dpg = nan(outer_iters, img_num);
 psnr_fp = nan(outer_iters,img_num);
-psnr_fasta = nan(outer_iters, img_num);
+psnr_apg = nan(outer_iters, img_num);
 
 time_admm = nan(outer_iters, img_num);
-time_pg = nan(outer_iters, img_num);
+time_dpg = nan(outer_iters, img_num);
 time_fp = nan(outer_iters,img_num);
-time_fasta = nan(outer_iters, img_num);
+time_apg = nan(outer_iters, img_num);
 
 % Create instant function for TNRD denoiser
 f_denoiser = @(i,sigf) Denoiser(i,sigf);
@@ -177,7 +177,7 @@ for img_idx = 1:img_num
     params_pg.Lf = Lf;
     params_pg.L0 = L0;
     
-    [est_pg_im, psnr_pg(:,img_idx), time_pg(:,img_idx)] = RunDPG(input_luma_im,...
+    [est_pg_im, psnr_dpg(:,img_idx), time_dpg(:,img_idx)] = RunDPG(input_luma_im,...
                                  ForwardFunc,...
                                  BackwardFunc,...
                                  InitEstFunc,...
@@ -192,41 +192,27 @@ for img_idx = 1:img_num
 
     fprintf('Restoring using RED: APG method\n');
     
-    opts = params;
-    opts.L = params.lambda;
-    % Use acceleration
-    opts.accelerate = true;
-    opts.adaptive = false;
-    opts.maxIters = params.outer_iters;
-    opts.verbose = true;
+    params_APG = params;
+    params_APG.L = 1;
 
-    [est_fasta_im, outs, opts_outs] = RunAPG(input_luma_im,...
+    [est_APG_im, psnr_apg(:,img_idx), time_apg(:,img_idx)] = RunAPG(input_luma_im,...
                                  ForwardFunc,...
                                  BackwardFunc,...
                                  InitEstFunc,...
                                  f_denoiser,...
                                  input_sigma,...
-                                 opts,...
+                                 params_APG,...
                                  orig_luma_im);
-                                 
-    psnr_fasta(:,img_idx) = outs.psnrValues;
-    
-    time_fasta(:,img_idx) = outs.a_time;
 
     fprintf('Done.\n');
 
 end
 %% Interpolate
 % Record the minimum peak value of the time for each type of trial
-time_admm_min = min(time_admm(end,:));
-time_pg_min = min(time_pg(end,:));
-time_fp_min = min(time_fp(end,:));
-time_fasta_min = min(time_fasta(end,:));
-
-grid_max = min([time_admm_min,time_pg_min,time_fp_min,time_fasta_min]);
-
-grid_min = max([time_admm(1,:), time_pg(1,:),time_fp(1,:),...
-    time_fasta(1,:)]);
+grid_max = max([time_admm(end,:), time_dpg(end,:),time_fp(end,:),...
+    time_apg(end,:)]);
+grid_min = max([time_admm(1,:), time_dpg(1,:),time_fp(1,:),...
+    time_apg(1,:)]);
 
 % Create grid
 grid_size = 200;
@@ -234,38 +220,38 @@ time_grid = linspace(grid_min,grid_max,grid_size);
 
 % Declare arrays
 psnr_admm_grid = zeros(grid_size,img_num);
-psnr_pg_grid = zeros(grid_size,img_num);
+psnr_dpg_grid = zeros(grid_size,img_num);
 psnr_fp_grid = zeros(grid_size,img_num);
-psnr_fasta_grid = zeros(grid_size,img_num);
+psnr_apg_grid = zeros(grid_size,img_num);
 
 % Interpolate
 for img_idx = start_idx:end_idx
     psnr_admm_grid(:,img_idx) = interp1(time_admm(:,img_idx),psnr_admm(:,img_idx),time_grid);
-    psnr_pg_grid(:,img_idx) = interp1(time_pg(:,img_idx),psnr_pg(:,img_idx),time_grid);
+    psnr_dpg_grid(:,img_idx) = interp1(time_dpg(:,img_idx),psnr_dpg(:,img_idx),time_grid);
     psnr_fp_grid(:,img_idx) = interp1(time_fp(:,img_idx),psnr_fp(:,img_idx),time_grid);
-    psnr_fasta_grid(:,img_idx) = interp1(time_fasta(:,img_idx),psnr_fasta(:,img_idx),time_grid);
+    psnr_apg_grid(:,img_idx) = interp1(time_apg(:,img_idx),psnr_apg(:,img_idx),time_grid);
 end
 
 % Average over time steps
 psnr_admm_time = mean( psnr_admm_grid, 2);
-psnr_pg_time = mean( psnr_pg_grid, 2);
+psnr_dpg_time = mean( psnr_dpg_grid, 2);
 psnr_fp_time = mean( psnr_fp_grid, 2);
-psnr_fasta_time = mean( psnr_fasta_grid, 2);
+psnr_apg_time = mean( psnr_apg_grid, 2);
 
 
 %% Analysis
 
 % average psnr over each iteration
 psnr_admm_iter = mean(psnr_admm,2);
-psnr_pg_iter = mean(psnr_pg,2);
+psnr_dpg_iter = mean(psnr_dpg,2);
 psnr_fp_iter = mean(psnr_fp,2);
-psnr_fasta_iter = mean(psnr_fasta,2);
+psnr_apg_iter = mean(psnr_apg,2);
 
 figure;
 semilogx(1:outer_iters,psnr_admm_iter,'.-'...
     ,1:outer_iters,psnr_fp_iter,'.-'...
-    ,1:outer_iters,psnr_pg_iter,'.-'...
-    ,1:outer_iters,psnr_fasta_iter,'.-');
+    ,1:outer_iters,psnr_dpg_iter,'.-'...
+    ,1:outer_iters,psnr_apg_iter,'.-');
 grid on;
 xlabel('iter');
 ylabel('psnr (dB)');
@@ -274,8 +260,8 @@ legend('ADMM I=1', 'FP', 'DPG','APG', 'Location', 'southeast');
 figure;
 semilogx(time_grid,psnr_admm_time,'.-'...
     ,time_grid,psnr_fp_time,'.-'...
-    ,time_grid,psnr_pg_time,'.-'...
-    ,time_grid,psnr_fasta_time,'.-');
+    ,time_grid,psnr_dpg_time,'.-'...
+    ,time_grid,psnr_apg_time,'.-');
 grid on;
 xlabel('time (sec)');
 ylabel('psnr (dB)');

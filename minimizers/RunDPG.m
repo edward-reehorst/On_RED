@@ -36,6 +36,8 @@
 %   input_sigma - noise level
 %   f_denosier  - Instant function for denoiser @(i,sig_f) where i is the
 %   params.lambda - regularization parameter
+%   params.L0   - Initial penalty parameter
+%   params.Lf   - final penalty parameter
 %   params.outer_iters - number of total iterations
 %   params.inner_iters - number of inner FP iterations
 %   params.use_fft - solve the linear system Az = b using FFT rather than
