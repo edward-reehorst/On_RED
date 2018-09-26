@@ -2,12 +2,19 @@ This repository is made to publish code used in "Regularization by
 Denoising: Clarifications and New Interpretations" by Reehorst, Schniter
 https://arxiv.org/abs/1806.02296v2
 
+This code can be used to recreate tables 1-3 and figures 1-9.
+The figures and tables can be reproduced by their corresponding script:
+tables 1-3      tables.m (change value of denoiser for the different
+                denoisers)
+figure 1:       cost_vs_fp_error.m
+figure 2:       RED_cost_visualization.m (change value of denoiser for the
+                different denoisers)
+figure 3:       ADMM_iteration_test.m
+figure 4-6:     algorithm_comparison.m (denoiser set to 'TNRD')
+figure 7-9:     algorithm_comparison.m (denoiser set to 'DWT')
 
-
-In order to recreate figures 1-4 and tables 1-3 run the corresponding
-script. figure_2.m and tables.m work with multiple denoisers. To change the
-denoiser used, change the value of the "denoiser" variable within the
-script file.
+This code uses several third-party code libraries. Directions on use and
+links to the original code can be found below.
 
 Using DnCNN:
 DnCNN works much faster with matconvnet (http://www.vlfeat.org/matconvnet/)
@@ -25,7 +32,6 @@ Run rwt/bin/compile.m before using the rwt.
 
 Links to original third-party code:
 RED     https://github.com/google/RED
-FASTA   https://github.com/tomgoldstein/fasta-matlab
 BM3D    http://www.cs.tut.fi/~foi/GCF-BM3D/index.html#ref_software
 TNRD    https://pan.baidu.com/s/1geNQP0J
 DnCNN   https://github.com/cszn/DnCNN
