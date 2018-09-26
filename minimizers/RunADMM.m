@@ -45,22 +45,20 @@
 %                use_fft == true).
 %   params.inner_denoiser_iters - number of steps to minimize Part2 of ADMM
 %   params.effective_sigma - the input noise level to the denoiser
+%   params.fp_error  - Controls if the fixed point error is calulated at
+%                every iteration, which will increase the run-time
 %   orig_im - the original image, used for PSNR evaluation ONLY
 
 % Outputs:
 %   im_out - the reconstructed image
 %   a_psnr - array of PSNR measurements between x_k and orig_im
 %   a_time - array of run-times taken after the kth iteration
+%   a_fp_error - array of fixed point error values after kth iteration
+%               (will not be filled if params.fp_error = false)
+%   a_update_dist - array of |x_k - x_{k-1}| for kth iteration
 
-function [im_out, psnr_out, a_time] = RunADMM(y, ForwardFunc, BackwardFunc,...
+function [im_out, a_psnr, a_time, a_fp_error,a_update_dist] = RunADMM(y, ForwardFunc, BackwardFunc,...
     InitEstFunc, f_denoiser, input_sigma, params, orig_im)
-
-% print info every PRINT_MOD steps 
-QUIET = 0;
-PRINT_MOD = floor(params.outer_iters/10);
-if ~QUIET
-    fprintf('%7s\t%10s\n', 'iter', 'PSNR');
-end
 
 % parameters
 lambda = params.lambda;
@@ -69,6 +67,14 @@ outer_iters = params.outer_iters;
 inner_iters = params.inner_iters;
 inner_denoiser_iters = params.inner_denoiser_iters;
 effective_sigma = params.effective_sigma;
+fp_error = params.fp_error;
+
+% print info every PRINT_MOD steps 
+QUIET = 0;
+PRINT_MOD = floor(params.outer_iters/10);
+if ~QUIET
+    fprintf('%7s\t%10s\n', 'iter', 'PSNR');
+end
 
 % initialization
 tstart = tic;
@@ -97,11 +103,13 @@ if isfield(params,'use_fft') && params.use_fft == true
     fft_Ht_y = conj(fft_psf).*fft_y / (input_sigma^2);
     fft_HtH = abs(fft_psf).^2 / (input_sigma^2);
 end
-psnr_out = zeros(outer_iters,1);
+a_psnr = zeros(outer_iters,1);
+a_fp_error = zeros(outer_iters,1);
 a_time = zeros(outer_iters,1);
+a_update_dist = zeros(outer_iters,1);
 
 for k = 1:1:outer_iters
-    
+    x0 = x_est;
     % Part1 of the ADMM, approximates the solution of:
     % x = argmin_z 1/(2sigma^2)||Hz-y||_2^2 + 0.5*beta||z - v + u||_2^2
     if isfield(params,'use_fft') && params.use_fft == true        
@@ -121,29 +129,29 @@ for k = 1:1:outer_iters
         end
     end
     
-    % relaxation
-    x_hat = params.alpha*x_est + (1-params.alpha)*v_est;
-    
-    
     % Part2 of the ADMM, approximates the solution of
     % v = argmin_z lambda*z'*(z-denoiser(z)) +  0.5*beta||z - x - u||_2^2
     % using gradient descent
     for j = 1:1:inner_denoiser_iters
         f_v_est =f_denoiser(v_est, effective_sigma);
-        v_est = (beta*(x_hat + u_est) + lambda*f_v_est)/(lambda + beta);
+        v_est = (beta*(x_est + u_est) + lambda*f_v_est)/(lambda + beta);
     end
     
     % Part3 of the ADMM, update the dual variable
-    u_est = u_est + x_hat - v_est;
+    u_est = u_est + x_est - v_est;
     
     % Save current psnr
 %     im_out = x_est(1:size(orig_im,1), 1:size(orig_im,2));
     im_out = x_est;
-    psnr_out(k) = psnr(orig_im, im_out,255);
+    a_psnr(k) = psnr(orig_im, im_out,255);
+    a_update_dist(k) = norm(x_est(:)-x0(:));
+    if fp_error
+        a_fp_error(k) = norm(BackwardFunc(ForwardFunc(x_est)-y)/(input_sigma^2) + lambda*(x_est-f_denoiser(x_est,effective_sigma)),'fro')^2;
+    end
     a_time(k) = toc(tstart);
     if ~QUIET && (mod(k,PRINT_MOD) == 0 || k == outer_iters)
         % evaluate the cost function
-        fprintf('%7i %12.5f \n', k, psnr_out(k));
+        fprintf('%7i %12.5f \n', k, a_psnr(k));
     end
 end
 

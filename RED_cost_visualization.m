@@ -13,7 +13,7 @@
 clear;
 
 % Denoiser ('MF', 'TNRD', 'DnCNN', 'BM3D', 'NLM', 'TDT')
-denoiser = 'TDT';
+denoiser = 'BM3D';
 
 % Set the effective sigma (not used by all denoisers)
 sig_f = 3.25;

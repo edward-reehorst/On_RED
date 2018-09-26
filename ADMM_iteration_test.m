@@ -120,6 +120,9 @@ for img_idx = 1:img_num
     % use fft for solving a linear system in a closed form
     params.use_fft = use_fft;
     params.psf = psf;
+    
+    % Set metric to psnr
+    params.metric = 'psnr';
 
     % number of inner iterations, set to 'nan' if use_fft == true
     if use_fft

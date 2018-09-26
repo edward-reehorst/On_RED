@@ -45,14 +45,19 @@
 %   params.psf     - the Point Spread Function (used only when 
 %                    use_fft == true).
 %   params.effective_sigma - the input noise level to the denoiser
-%   orig_im - the original image, used for PSNR evaluation ONLY
+%   params.fp_error  - Controls if the fixed point error is calulated at
+%                every iteration, which will increase the run-time
+%   ground_truth - the original image, used for PSNR evaluation ONLY
 %
 % Outputs:
 %   im_out - the reconstructed image
-%   a_psnr - array of PSNR measurements between x_k and orig_im
+%   a_metric - array of PSNR measurements between x_k and orig_im
 %   a_time - array of run-times taken after the kth iteration
+%   a_fp_error - array of fixed point error values after kth iteration
+%               (will not be filled if params.fp_error = false)
+%   a_update_dist - array of |x_k - x_{k-1}| for kth iteration
 
-function [x_out,a_psnr, a_time] = RunAPG(y,ForwardFunc, BackwardFunc,...
+function [x_out,a_psnr, a_time, a_fp_error,a_update_dist] = RunAPG(y,ForwardFunc, BackwardFunc,...
     InitEstFunc,f_denoiser ,input_sigma,params,ground_truth)
 
 if ~isfield(params,'quiet') || ~params.quiet
@@ -61,24 +66,27 @@ else
     QUIET = 1;
 end
 
-% print infp every PRINT_MOD steps
-
-PRINT_MOD = floor(params.outer_iters/10);
-if ~QUIET
-    fprintf('%7s\t%10s\n', 'iter', 'PSNR');
-end
-
 % Get parameters
 L = params.L;
 lambda = params.lambda;
 outer_iters = params.outer_iters;
 inner_iters = params.inner_iters;
 effective_sigma = params.effective_sigma;
+fp_error = params.fp_error;
+
+% print infp every PRINT_MOD steps
+
+PRINT_MOD = floor(params.outer_iters/10);
+if ~QUIET
+    fprintf('%7s\t%10s\n', 'iter', 'psnr');
+end
 
 % Initialize parameters
 x_est = InitEstFunc(y);
 
 a_psnr = zeros(outer_iters,1);
+a_fp_error = zeros(outer_iters,1);
+a_update_dist = zeros(outer_iters,1);
 a_time = zeros(outer_iters,1);
 
 
@@ -127,11 +135,15 @@ for k=1:outer_iters
             x_est = max( min(x_est, 255), 0);
         end
     end
-    
+    a_update_dist(k) = norm(x_est-x0,'fro');
     % Find psnr at every iteration
-    a_psnr(k) = psnr(x_est,ground_truth,255);
-    a_time(k) = toc(t_start);
+    a_time(k) = toc(t_start);    
+    a_psnr(k) = psnr(ground_truth, x_est,255);
     
+    if fp_error
+        a_fp_error(k) = norm(BackwardFunc(ForwardFunc(x_est)-y)/(input_sigma^2) + lambda*(x_est-f_denoiser(x_est,effective_sigma)),'fro')^2;
+    end
+     
     % skip v update on last iteration (saves a call to the denoiser)
     if k~=outer_iters
         % update relaxation parameter
@@ -140,9 +152,9 @@ for k=1:outer_iters
         % Perform momentum step
         z = x_est + (t0-1)/t1*(x_est-x0);
         % update v
-        v = (1/L)*(f_denoiser(z,effective_sigma) - (1-L)*z);
+        v = (1/L)*f_denoiser(z,effective_sigma) + (1-1/L)*z;
     end
-
+    
     if ~QUIET && (mod(k,PRINT_MOD) == 0 || k == outer_iters)
         % evaluate the cost function
         fprintf('%7i %12.5f \n', k, a_psnr(k));

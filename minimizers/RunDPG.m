@@ -46,27 +46,24 @@
 %   params.psf     - the Point Spread Function (used only when 
 %                    use_fft == true).
 %   params.effective_sigma - the input noise level to the denoiser
-%   orig_im - the original image, used for PSNR evaluation ONLY
+%   params.metric  - Set to 'psnr' to collect psnr data or set to 'fp' for
+%                    fixed-point error.
+%   ground_truth - the original image, used for PSNR evaluation ONLY
 %
 % Outputs:
-%   im_out - the reconstructed image
-%   a_psnr - array of PSNR measurements between x_k and orig_im
+%   x_out - the reconstructed image
+%   a_metric - array of PSNR/fp_error (based on metric) measurements
 %   a_time - array of run-times taken after the kth iteration
+%   a_fp_error - array of fixed point error values after kth iteration
+%   a_update_dist - array of |x_k - x_{k-1}| for kth iteration
 
-function [x_out,a_psnr, a_time] = RunDPG(y,ForwardFunc, BackwardFunc,...
+function [x_out,a_psnr, a_time, a_fp_error,a_update_dist] = RunDPG(y,ForwardFunc, BackwardFunc,...
     InitEstFunc,f_denoiser ,input_sigma,params,ground_truth)
 
 if ~isfield(params,'quiet') || ~params.quiet
     QUIET = 0;
 else
     QUIET = 1;
-end
-
-% print infp every PRINT_MOD steps
-
-PRINT_MOD = floor(params.outer_iters/10);
-if ~QUIET
-    fprintf('%7s\t%10s\n', 'iter', 'PSNR');
 end
 
 % Get parameters
@@ -77,11 +74,20 @@ outer_iters = params.outer_iters;
 inner_iters = params.inner_iters;
 effective_sigma = params.effective_sigma;
 
+% print infp every PRINT_MOD steps
+
+PRINT_MOD = floor(params.outer_iters/10);
+if ~QUIET
+    fprintf('%7s\t%10s\n', 'iter', 'psnr');
+end
+
 % Initialize parameters
 x_est = InitEstFunc(y);
 
 a_psnr = zeros(outer_iters,1);
+a_fp_error = zeros(outer_iters,1);
 a_time = zeros(outer_iters,1);
+a_update_dist = zeros(outer_iters,1);
 
 
 % If using fft for closed form update, precompute important quanties
@@ -105,6 +111,7 @@ L = L0;
 v = (1/L)*(f_denoiser(x_est,effective_sigma) - (L-1)*x_est);
 
 for k=1:outer_iters
+    x0 = x_est;
     % Update x = argmin 1/(2*input_sigma^2)||Ax-y||^2 + lambda*L/2||x-v||^2
     % solve Az = b by a variant of the SD method, where
     % A = 1/(sigma^2)*H'*H + lambda*L*I, and
@@ -128,16 +135,19 @@ for k=1:outer_iters
         end
     end
     
-    % Find psnr at every iteration
-    a_psnr(k) = psnr(x_est,ground_truth,255);
     a_time(k) = toc(t_start);
+    a_update_dist(k) = norm(x_est(:)-x0(:));
+    f_x_est = f_denoiser(x_est,effective_sigma);
     
+    % Save current metric value
+    a_psnr(k) = psnr(ground_truth, x_est,255);
+    a_fp_error(k) = norm(BackwardFunc(ForwardFunc(x_est)-y)/(input_sigma^2) + lambda*(x_est-f_x_est),'fro')^2;
     
     % skip L and v update on last iteration (saves a call to the denoiser)
     if k~=outer_iters
         % Update L and v
         L = (1/Lf+(1/L0-1/Lf)./sqrt(k+1))^-1;
-        v = (1/L)*(f_denoiser(x_est,effective_sigma) - (1-L)*x_est);
+        v = (1/L)*(f_x_est - (1-L)*x_est);
     end
 
     if ~QUIET && (mod(k,PRINT_MOD) == 0 || k == outer_iters)

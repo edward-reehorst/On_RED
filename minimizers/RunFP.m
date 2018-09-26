@@ -44,28 +44,32 @@
 %   params.psf     - the Point Spread Function (used only when 
 %                    use_fft == true).
 %   params.effective_sigma - the input noise level to the denoiser
+%   params.metric  - Set to 'psnr' to collect psnr data or set to 'fp' for
+%                    fixed-point error.
 %   orig_im - the original image, used for PSNR evaluation ONLY
 %
 % Outputs:
 %   im_out - the reconstructed image
 %   a_psnr - array of PSNR measurements between x_k and orig_im
 %   a_time - array of run-times taken after the kth iteration
+%   a_fp_error - array of fixed point error values after kth iteration
+%   a_update_dist - array of |x_k - x_{k-1}| for kth iteration
 
-function [im_out, psnr_out, a_time] = RunFP(y, ForwardFunc, BackwardFunc,...
+function [im_out, a_psnr, a_time, a_fp_error,a_update_dist] = RunFP(y, ForwardFunc, BackwardFunc,...
     InitEstFunc,f_denoiser, input_sigma, params, orig_im)
-
-% print infp every PRINT_MOD steps 
-QUIET = 0;
-PRINT_MOD = floor(params.outer_iters/10);
-if ~QUIET
-    fprintf('%7s\t%10s\n', 'iter', 'PSNR');
-end
 
 % parameters
 lambda = params.lambda;
 outer_iters = params.outer_iters;
 inner_iters = params.inner_iters;
 effective_sigma = params.effective_sigma;
+
+% print infp every PRINT_MOD steps 
+QUIET = 0;
+PRINT_MOD = floor(params.outer_iters/10);
+if ~QUIET
+    fprintf('%7s\t%10s\n', 'iter', 'psnr');
+end
 
 % initialization
 tstart = tic;
@@ -92,15 +96,18 @@ if isfield(params,'use_fft') && params.use_fft == true
     fft_Ht_y = conj(fft_psf).*fft_y / (input_sigma^2);
     fft_HtH = abs(fft_psf).^2 / (input_sigma^2);
 end
-psnr_out = zeros(outer_iters,1);
+a_psnr = zeros(outer_iters,1);
+a_fp_error = zeros(outer_iters,1);
 a_time = zeros(outer_iters,1);
+a_update_dist = zeros(outer_iters,1);
+
+
+% apply the denoising engine
+f_x_est = f_denoiser(x_est, effective_sigma);
 
 % outer iterations
 for k = 1:1:outer_iters
-    
-    % apply the denoising engine
-    f_x_est = f_denoiser(x_est, effective_sigma);
-    
+    x0 = x_est;
     % solve Az = b by a variant of the SD method, where
     % A = 1/(sigma^2)*H'*H + lambda*I, and
     % b = 1/(sigma^2)*H'*y + lambda*denoiser(x_est)
@@ -126,13 +133,21 @@ for k = 1:1:outer_iters
 %         im_out = x_est(1:size(orig_im,1), 1:size(orig_im,2), 1:size(orig_im,3));
 %     end        
     im_out = x_est;
-    % Save current psnr
-    psnr_out(k) = psnr(orig_im, im_out,255);
+    
     a_time(k) = toc(tstart);
+    
+    % apply the denoising engine
+    f_x_est = f_denoiser(x_est, effective_sigma);
+    
+    % Save current metric value
+    a_psnr(k) = psnr(orig_im, im_out,255);
+    a_fp_error(k) = norm(BackwardFunc(ForwardFunc(x_est)-y)/(input_sigma^2) + lambda*(x_est-f_x_est),'fro')^2;
+    a_update_dist(k) = norm(x_est(:)-x0(:));
+
     if ~QUIET && (mod(k,PRINT_MOD) == 0 || k == outer_iters)
         % evaluate the cost function
 
-        fprintf('%7i %12.5f \n', k, psnr_out(k));
+        fprintf('%7i %12.5f \n', k, a_psnr(k));
     end
 end
 

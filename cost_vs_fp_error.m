@@ -139,10 +139,10 @@ ylabel('cost')
 
 figure;
 yyaxis left
-plot(1:params.outer_iters, a_cost, '.-');
+semilogy(1:params.outer_iters, a_cost, '.-');
 xlabel('iter')
 ylabel('cost')
 
 yyaxis right
-plot(1:params.outer_iters, a_fp_error, '.-');
+semilogy(1:params.outer_iters, a_fp_error, '.-');
 ylabel('fp error')
